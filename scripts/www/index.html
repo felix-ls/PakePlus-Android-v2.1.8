@@ -1,11 +1,165 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指标查询系统</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>指标查询系统</h1>
+
+        <div class="search-box">
+            <select id="yearSelect" onchange="changeYear()"></select>
+            <input type="text" id="searchInput" placeholder="输入关键词查询（指标文号、指标说明等）">
+            <button onclick="searchData()">查询</button>
+            <button class="btn-blue" onclick="clearSearch()">显示全部</button>
+            <button class="btn-orange" onclick="exportExcel()">导出Excel</button>
+            <button class="btn-gray admin-btn" onclick="openAdminModal()">管理</button>
+        </div>
+
+        <div class="filter-box">
+            <div class="radio-group" id="balanceGroup">
+                <label class="radio-item active" data-value="all" onclick="setBalanceFilter('all')">
+                    <input type="radio" name="balanceFilter" value="all" checked>
+                    <span class="radio-label">全部</span>
+                </label>
+                <label class="radio-item" data-value="zero" onclick="setBalanceFilter('zero')">
+                    <input type="radio" name="balanceFilter" value="zero">
+                    <span class="radio-label">余额为零</span>
+                </label>
+                <label class="radio-item" data-value="nonzero" onclick="setBalanceFilter('nonzero')">
+                    <input type="radio" name="balanceFilter" value="nonzero">
+                    <span class="radio-label">余额不为零</span>
+                </label>
+            </div>
+            <div class="radio-group" id="sourceGroup">
+                <label class="radio-item active" data-value="all" onclick="setSourceFilter('all')">
+                    <input type="radio" name="sourceFilter" value="all" checked>
+                    <span class="radio-label">全部来源</span>
+                </label>
+                <label class="radio-item" data-value="budget" onclick="setSourceFilter('budget')">
+                    <input type="radio" name="sourceFilter" value="budget">
+                    <span class="radio-label">年初预算</span>
+                </label>
+                <label class="radio-item" data-value="carryover" onclick="setSourceFilter('carryover')">
+                    <input type="radio" name="sourceFilter" value="carryover">
+                    <span class="radio-label">上年结转</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>指标文号</th>
+                        <th>上级指标文号</th>
+                        <th>上层指标文号</th>
+                        <th>下达日期</th>
+                        <th>发文日期</th>
+                        <th>指标说明</th>
+                        <th>原始指标金额</th>
+                        <th>实际可用金额</th>
+                        <th>支付合计</th>
+                        <th>支付进度(%)</th>
+                        <th>指标结余</th>
+                        <th>备注</th>
+                    </tr>
+                    <tr id="summaryRow" class="summary-row">
+                        <td>合计</td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td>
+                        <td id="sum_原始指标金额" class="amount"><span class="amount-center">-</span></td>
+                        <td id="sum_实际指标可用金额" class="amount"><span class="amount-center">-</span></td>
+                        <td id="sum_实际支付合计" class="amount"><span class="amount-center">-</span></td>
+                        <td id="sum_实际支付支付进度" class="amount"><span class="amount-center">-</span></td>
+                        <td id="sum_指标结余" class="amount"><span class="amount-center">-</span></td>
+                        <td></td>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="13" class="loading">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 备注编辑模态框 -->
+    <div class="modal" id="remarkModal">
+        <div class="modal-content">
+            <h3>编辑备注</h3>
+            <p id="modalIndicatorInfo" class="modal-hint"></p>
+            <textarea id="remarkInput" placeholder="请输入备注内容"></textarea>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">取消</button>
+                <button class="btn-save" onclick="saveRemark()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理面板模态框 -->
+    <div class="modal" id="adminModal">
+        <div class="modal-content" style="max-width: 450px;">
+            <h3>数据管理</h3>
+
+            <div class="admin-section">
+                <h4>导入数据</h4>
+                <div class="admin-row">
+                    <select id="importYearSelect" class="admin-input"></select>
+                    <input type="file" id="fileInput" accept=".xlsx" style="display: none;" onchange="handleFileSelect(this)">
+                    <button id="btnSelectFile" class="admin-btn btn-purple" onclick="document.getElementById('fileInput').click()">选择文件</button>
+                </div>
+                <div id="importFileName" class="admin-file-name"></div>
+            </div>
+
+            <div class="admin-section">
+                <h4>新增年份</h4>
+                <div class="admin-row">
+                    <input type="number" id="newYearInput" placeholder="输入年份" min="2000" max="2100" class="admin-input">
+                    <button class="admin-btn btn-green" onclick="addNewYear()">新增</button>
+                </div>
+            </div>
+
+            <div class="admin-section">
+                <h4>删除年份</h4>
+                <div class="admin-row">
+                    <select id="deleteYearSelect" class="admin-input"></select>
+                    <button class="admin-btn btn-red" onclick="deleteYear()">删除</button>
+                </div>
+            </div>
+
+            <div class="admin-section">
+                <h4>重置数据</h4>
+                <div class="admin-row">
+                    <select id="resetYearSelect" class="admin-input"></select>
+                    <button class="admin-btn btn-orange" onclick="resetYearData()">重置</button>
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeAdminModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 密码验证模态框 -->
+    <div class="modal" id="passwordModal" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 350px;">
+            <h3>管理员验证</h3>
+            <p id="passwordModalHint" class="modal-hint">请输入管理员密码</p>
+            <input type="password" id="passwordInput" placeholder="请输入管理员密码" class="password-input">
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closePasswordModal()">取消</button>
+                <button class="btn-save" onclick="confirmPassword()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/config.js"></script>
+    <script src="./js/utils.js"></script>
+    <script src="./js/api.js"></script>
+    <script src="./js/app.js"></script>
+</body>
 </html>
