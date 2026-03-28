@@ -11,8 +11,9 @@ const API = {
 
         try {
             const response = await fetch(url, options);
-            if (response.status === 403) {
-                throw new Error('访问被拒绝：未授权的外部访问');
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.detail || err.message || '请求失败');
             }
             return await response.json();
         } catch (error) {
@@ -21,12 +22,30 @@ const API = {
         }
     },
 
+    /**
+     * 发起请求并以 Blob 形式返回（用于文件下载）
+     */
+    async requestBlob(path, options = {}) {
+        const url = API_BASE + path;
+        if (APP_TOKEN) {
+            options.headers = Object.assign({}, options.headers, {
+                'X-App-Token': APP_TOKEN
+            });
+        }
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || err.message || '导出失败');
+        }
+        return response;
+    },
+
     getYears() {
         return this.request('/api/indicators/years');
     },
 
-    getIndicators(year, keyword, balance, source) {
-        const params = new URLSearchParams({ year, balance, source });
+    getIndicators(year, keyword, balance, budget_type, year_type) {
+        const params = new URLSearchParams({ year, balance, budget_type, year_type });
         if (keyword) params.set('keyword', keyword);
         return this.request('/api/indicators/?' + params);
     },
@@ -55,9 +74,11 @@ const API = {
     },
 
     deleteYear(year, password) {
-        return this.request('/api/admin/year/' + year, {
+        // 密码通过 Body 传递（不再用 Header）
+        return this.request('/api/admin/year', {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json', 'password': password }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ year: year, password: password })
         });
     },
 
@@ -69,12 +90,20 @@ const API = {
         });
     },
 
-    // Excel 导出（window.location 跳转，非 fetch）
-    getExportUrl(year, keyword, balance, source) {
-        const params = new URLSearchParams({ year, balance, source });
-        if (keyword) params.set('keyword', keyword);
-        let url = API_BASE + '/api/indicators/export?' + params;
-        if (APP_TOKEN) url += '&token=' + encodeURIComponent(APP_TOKEN);
-        return url;
+    /**
+     * Excel 导出：POST 请求，token 走 Header 不泄露到 URL
+     * 返回 Promise<Response>，调用方自行 blob() + 下载
+     */
+    exportExcel(year, keyword, balance, budget_type, year_type) {
+        return this.requestBlob('/api/indicators/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ year, keyword: keyword || '', balance, budget_type, year_type })
+        });
+    },
+
+    getPaymentDetails(indicatorId, year) {
+        const params = new URLSearchParams({ year });
+        return this.request('/api/payment/' + encodeURIComponent(indicatorId) + '?' + params);
     }
 };
