@@ -21,30 +21,26 @@
 
         <div class="filter-box">
             <div class="radio-group" id="balanceGroup">
-                <label class="radio-item active" data-value="all" onclick="setBalanceFilter('all')">
-                    <input type="radio" name="balanceFilter" value="all" checked>
-                    <span class="radio-label">全部</span>
-                </label>
-                <label class="radio-item" data-value="zero" onclick="setBalanceFilter('zero')">
-                    <input type="radio" name="balanceFilter" value="zero">
+                <label class="radio-item" data-value="zero" onclick="toggleFilter('balanceGroup','balance','zero')">
                     <span class="radio-label">余额为零</span>
                 </label>
-                <label class="radio-item" data-value="nonzero" onclick="setBalanceFilter('nonzero')">
-                    <input type="radio" name="balanceFilter" value="nonzero">
+                <label class="radio-item" data-value="nonzero" onclick="toggleFilter('balanceGroup','balance','nonzero')">
                     <span class="radio-label">余额不为零</span>
                 </label>
             </div>
-            <div class="radio-group" id="sourceGroup">
-                <label class="radio-item active" data-value="all" onclick="setSourceFilter('all')">
-                    <input type="radio" name="sourceFilter" value="all" checked>
-                    <span class="radio-label">全部来源</span>
-                </label>
-                <label class="radio-item" data-value="budget" onclick="setSourceFilter('budget')">
-                    <input type="radio" name="sourceFilter" value="budget">
+            <div class="radio-group" id="budgetGroup">
+                <label class="radio-item" data-value="budget" onclick="toggleFilter('budgetGroup','budget','budget')">
                     <span class="radio-label">年初预算</span>
                 </label>
-                <label class="radio-item" data-value="carryover" onclick="setSourceFilter('carryover')">
-                    <input type="radio" name="sourceFilter" value="carryover">
+                <label class="radio-item" data-value="non_budget" onclick="toggleFilter('budgetGroup','budget','non_budget')">
+                    <span class="radio-label">非年初预算</span>
+                </label>
+            </div>
+            <div class="radio-group" id="yearTypeGroup">
+                <label class="radio-item" data-value="current" onclick="toggleFilter('yearTypeGroup','yearType','current')">
+                    <span class="radio-label">本年指标</span>
+                </label>
+                <label class="radio-item" data-value="carryover" onclick="toggleFilter('yearTypeGroup','yearType','carryover')">
                     <span class="radio-label">上年结转</span>
                 </label>
             </div>
@@ -153,6 +149,35 @@
             <div class="modal-buttons">
                 <button class="btn-cancel" onclick="closePasswordModal()">取消</button>
                 <button class="btn-save" onclick="confirmPassword()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 支付明细弹窗 -->
+    <div class="modal" id="paymentModal">
+        <div class="payment-modal-content">
+            <div class="payment-header">
+                <h3>支付明细</h3>
+                <button class="payment-close-btn" onclick="closePaymentModal()">&times;</button>
+            </div>
+            <div class="payment-summary">
+                <span id="paymentTotal" class="payment-total-badge"></span>
+            </div>
+            <div class="payment-table-container">
+            <table class="payment-table">
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>收款人</th>
+                        <th>支付日期</th>
+                        <th>清算日期</th>
+                        <th>金额</th>
+                        <th>摘要事由</th>
+                    </tr>
+                </thead>
+                <tbody id="paymentTableBody">
+                </tbody>
+            </table>
             </div>
         </div>
     </div>
