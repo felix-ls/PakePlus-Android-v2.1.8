@@ -5,7 +5,8 @@ let importYear = new Date().getFullYear();
 let pendingAction = null;
 let pendingActionData = null;
 let currentBalance = 'all';
-let currentSource = 'all';
+let currentBudget = 'all';
+let currentYearType = 'all';
 
 // ===== 数据加载 =====
 
@@ -40,7 +41,7 @@ function loadData(keyword) {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '<tr><td colspan="13" class="loading">加载中...</td></tr>';
 
-    API.getIndicators(currentYear, keyword, currentBalance, currentSource)
+    API.getIndicators(currentYear, keyword, currentBalance, currentBudget, currentYearType)
         .then(result => {
             const data = result.data || [];
             const summary = result.summary || {};
@@ -68,7 +69,11 @@ function loadData(keyword) {
                 html += '<td class="indicator-desc">' + formatText(row['指标说明']) + '</td>';
                 html += '<td class="amount">' + formatAmount(row['原始指标金额']) + '</td>';
                 html += '<td class="amount">' + formatAmount(row['实际指标可用金额']) + '</td>';
-                html += '<td class="amount">' + formatAmount(row['实际支付合计']) + '</td>';
+                if (row['实际支付合计'] && row['实际支付合计'] > 0 && row['指标id']) {
+                    html += '<td class="amount payment-link" data-indicator-id="' + escapeHtml(row['指标id']) + '">' + formatAmount(row['实际支付合计']) + '</td>';
+                } else {
+                    html += '<td class="amount">' + formatAmount(row['实际支付合计']) + '</td>';
+                }
                 html += '<td class="amount">' + formatProgress(row['实际支付支付进度']) + '</td>';
                 html += '<td class="amount">' + formatAmount(row['指标结余']) + '</td>';
                 if (isEditable) {
@@ -101,35 +106,75 @@ function searchData() {
 
 function clearSearch() {
     document.getElementById('searchInput').value = '';
-    currentSource = 'all';
-    document.querySelectorAll('#sourceGroup .radio-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.value === 'all') item.classList.add('active');
-    });
-    setBalanceFilter('all');
+    currentBalance = 'all';
+    currentBudget = 'all';
+    currentYearType = 'all';
+    document.querySelectorAll('.radio-item').forEach(item => item.classList.remove('active'));
+    loadData();
 }
 
-function setBalanceFilter(value) {
-    currentBalance = value;
-    document.querySelectorAll('#balanceGroup .radio-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.value === value) item.classList.add('active');
-    });
-    loadData(document.getElementById('searchInput').value);
-}
+function toggleFilter(groupId, filterName, value) {
+    var group = document.getElementById(groupId);
+    var activeItem = group.querySelector('.radio-item.active');
+    var wasActive = activeItem && activeItem.dataset.value === value;
 
-function setSourceFilter(value) {
-    currentSource = value;
-    document.querySelectorAll('#sourceGroup .radio-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.value === value) item.classList.add('active');
-    });
-    loadData(document.getElementById('searchInput').value);
+    group.querySelectorAll('.radio-item').forEach(item => item.classList.remove('active'));
+
+    if (wasActive) {
+        if (filterName === 'balance') currentBalance = 'all';
+        else if (filterName === 'budget') currentBudget = 'all';
+        else if (filterName === 'yearType') currentYearType = 'all';
+    } else {
+        group.querySelector('[data-value="' + value + '"]').classList.add('active');
+        if (filterName === 'balance') {
+            currentBalance = value;
+        } else if (filterName === 'budget') {
+            currentBudget = value;
+            if (value === 'budget') {
+                currentYearType = 'all';
+                document.querySelectorAll('#yearTypeGroup .radio-item').forEach(item => item.classList.remove('active'));
+            }
+        } else if (filterName === 'yearType') {
+            currentYearType = value;
+            if (value === 'carryover') {
+                currentBudget = 'all';
+                document.querySelectorAll('#budgetGroup .radio-item').forEach(item => item.classList.remove('active'));
+            }
+        }
+    }
+    loadData(document.getElementById('searchInput').value.trim());
 }
 
 function exportExcel() {
     const keyword = document.getElementById('searchInput').value.trim();
-    window.location.href = API.getExportUrl(currentYear, keyword, currentBalance, currentSource);
+    const btn = document.querySelector('.btn-orange');
+    const originalText = btn.textContent;
+    btn.textContent = '导出中...';
+    btn.disabled = true;
+
+    API.exportExcel(currentYear, keyword, currentBalance, currentBudget, currentYearType)
+        .then(async response => {
+            const blob = await response.blob();
+            // 从 Content-Disposition 提取文件名
+            const disposition = response.headers.get('Content-Disposition') || '';
+            let filename = '指标数据.xlsx';
+            const match = disposition.match(/filename\*=UTF-8''(.+)/);
+            if (match) filename = decodeURIComponent(match[1]);
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        })
+        .catch(e => alert('导出失败: ' + e.message))
+        .finally(() => {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        });
 }
 
 // ===== 备注编辑 =====
@@ -141,9 +186,9 @@ function openModal(id, currentRemark, indicatorNo) {
     document.getElementById('remarkInput').disabled = isHistoryYear;
     document.getElementById('modalIndicatorInfo').textContent = '指标文号: ' + (indicatorNo === '-' ? '' : indicatorNo);
     if (isHistoryYear) {
-        document.querySelector('.btn-save').style.display = 'none';
+        document.querySelector('#remarkModal .btn-save').style.display = 'none';
     } else {
-        document.querySelector('.btn-save').style.display = '';
+        document.querySelector('#remarkModal .btn-save').style.display = '';
     }
     document.getElementById('remarkModal').classList.add('active');
 }
@@ -158,15 +203,11 @@ function saveRemark() {
     const newRemark = document.getElementById('remarkInput').value.trim();
 
     API.updateRemark(currentEditId, newRemark, currentYear)
-        .then(data => {
-            if (data.success) {
-                closeModal();
-                loadData(document.getElementById('searchInput').value.trim());
-            } else {
-                alert('保存失败: ' + (data.error || '未知错误'));
-            }
+        .then(() => {
+            closeModal();
+            loadData(document.getElementById('searchInput').value.trim());
         })
-        .catch(() => alert('保存失败，请重试'));
+        .catch(e => alert('保存失败: ' + e.message));
 }
 
 // ===== 文件上传 =====
@@ -209,21 +250,16 @@ function doUpload(file, password) {
             btn.disabled = false;
             document.getElementById('fileInput').value = '';
             document.getElementById('importFileName').textContent = '';
-
-            if (data.success) {
-                alert('导入成功！' + data.message);
-                loadYears();
-                loadData();
-                updateAdminYearSelects();
-            } else {
-                alert('导入失败：' + data.message);
-            }
+            alert('导入成功！' + data.message);
+            loadYears();
+            loadData();
+            updateAdminYearSelects();
         })
-        .catch(() => {
+        .catch(e => {
             btn.textContent = originalText;
             btn.disabled = false;
             document.getElementById('fileInput').value = '';
-            alert('上传失败，请重试');
+            alert('导入失败：' + e.message);
         });
 }
 
@@ -286,16 +322,12 @@ function addNewYear() {
 
     API.addYear(year)
         .then(data => {
-            if (data.success) {
-                alert(data.message);
-                loadYears();
-                updateAdminYearSelects();
-                document.getElementById('newYearInput').value = '';
-            } else {
-                alert('新增失败：' + data.message);
-            }
+            alert(data.message);
+            loadYears();
+            updateAdminYearSelects();
+            document.getElementById('newYearInput').value = '';
         })
-        .catch(() => alert('操作失败，请重试'));
+        .catch(e => alert('新增失败：' + e.message));
 }
 
 function deleteYear() {
@@ -323,29 +355,21 @@ function resetYearData() {
 function doDeleteYear(year, password) {
     API.deleteYear(year, password)
         .then(data => {
-            if (data.success) {
-                alert(data.message);
-                loadYears();
-                updateAdminYearSelects();
-            } else {
-                alert('删除失败：' + data.message);
-            }
+            alert(data.message);
+            loadYears();
+            updateAdminYearSelects();
         })
-        .catch(() => alert('操作失败，请重试'));
+        .catch(e => alert('删除失败：' + e.message));
 }
 
 function doResetYear(year, password) {
     API.resetYear(year, password)
         .then(data => {
-            if (data.success) {
-                alert(data.message);
-                loadData();
-                updateAdminYearSelects();
-            } else {
-                alert('重置失败：' + data.message);
-            }
+            alert(data.message);
+            loadData();
+            updateAdminYearSelects();
         })
-        .catch(() => alert('操作失败，请重试'));
+        .catch(e => alert('重置失败：' + e.message));
 }
 
 // ===== 密码模态框 =====
@@ -366,7 +390,7 @@ function confirmPassword() {
         doDeleteYear(pendingActionData.year, password);
     } else if (pendingAction === 'resetYear') {
         doResetYear(pendingActionData.year, password);
-    } else {
+    } else if (pendingAction === 'import') {
         doUpload(pendingFile, password);
     }
     closePasswordModal();
@@ -379,6 +403,22 @@ document.getElementById('searchInput').addEventListener('keypress', function(e) 
 });
 
 document.getElementById('tableBody').addEventListener('click', function(e) {
+    // 支付明细点击
+    const paymentCell = e.target.closest('.payment-link');
+    if (paymentCell) {
+        const indicatorId = paymentCell.dataset.indicatorId;
+        if (indicatorId) {
+            openPaymentModal(indicatorId);
+            return;
+        }
+    }
+
+    const row = e.target.closest('tr');
+    if (row) {
+        document.querySelectorAll('#tableBody tr.selected').forEach(r => r.classList.remove('selected'));
+        row.classList.toggle('selected');
+    }
+
     const cell = e.target.closest('.remark-cell');
     if (cell) {
         openModal(
@@ -388,6 +428,49 @@ document.getElementById('tableBody').addEventListener('click', function(e) {
         );
     }
 });
+
+// ===== 支付明细弹窗 =====
+
+function openPaymentModal(indicatorId) {
+    document.getElementById('paymentTableBody').innerHTML = '<tr><td colspan="6" class="loading">加载中...</td></tr>';
+    document.getElementById('paymentTotal').textContent = '';
+    document.getElementById('paymentModal').classList.add('active');
+    document.body.classList.add('modal-open');
+
+    API.getPaymentDetails(indicatorId, currentYear)
+        .then(result => {
+            const data = result.data || [];
+            const total = result.total || 0;
+
+            if (data.length === 0) {
+                document.getElementById('paymentTableBody').innerHTML = '<tr><td colspan="6" class="no-data">暂无支付明细</td></tr>';
+                document.getElementById('paymentTotal').textContent = '';
+                return;
+            }
+
+            let html = '';
+            data.forEach((item, idx) => {
+                html += '<tr>';
+                html += '<td>' + (idx + 1) + '</td>';
+                html += '<td>' + formatText(item['收款人']) + '</td>';
+                html += '<td class="date-cell">' + formatDate(item['银行支付日期']) + '</td>';
+                html += '<td class="date-cell">' + formatDate(item['清算日期']) + '</td>';
+                html += '<td class="amount">' + formatAmount(item['金额']) + '</td>';
+                html += '<td style="text-align:left">' + formatText(item['摘要事由']) + '</td>';
+                html += '</tr>';
+            });
+            document.getElementById('paymentTableBody').innerHTML = html;
+            document.getElementById('paymentTotal').textContent = '合计 ' + total.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' 元 · ' + data.length + ' 笔';
+        })
+        .catch(e => {
+            document.getElementById('paymentTableBody').innerHTML = '<tr><td colspan="6" class="no-data">加载失败: ' + escapeHtml(e.message) + '</td></tr>';
+        });
+}
+
+function closePaymentModal() {
+    document.getElementById('paymentModal').classList.remove('active');
+    document.body.classList.remove('modal-open');
+}
 
 // ===== 启动 =====
 
