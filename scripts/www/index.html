@@ -20,14 +20,6 @@
         </div>
 
         <div class="filter-box">
-            <div class="radio-group" id="balanceGroup">
-                <label class="radio-item" data-value="zero" onclick="toggleFilter('balanceGroup','balance','zero')">
-                    <span class="radio-label">余额为零</span>
-                </label>
-                <label class="radio-item" data-value="nonzero" onclick="toggleFilter('balanceGroup','balance','nonzero')">
-                    <span class="radio-label">余额不为零</span>
-                </label>
-            </div>
             <div class="radio-group" id="budgetGroup">
                 <label class="radio-item" data-value="budget" onclick="toggleFilter('budgetGroup','budget','budget')">
                     <span class="radio-label">年初预算</span>
@@ -42,6 +34,14 @@
                 </label>
                 <label class="radio-item" data-value="carryover" onclick="toggleFilter('yearTypeGroup','yearType','carryover')">
                     <span class="radio-label">上年结转</span>
+                </label>
+            </div>
+            <div class="radio-group" id="balanceGroup">
+                <label class="radio-item" data-value="zero" onclick="toggleFilter('balanceGroup','balance','zero')">
+                    <span class="radio-label">余额为零</span>
+                </label>
+                <label class="radio-item" data-value="nonzero" onclick="toggleFilter('balanceGroup','balance','nonzero')">
+                    <span class="radio-label">余额不为零</span>
                 </label>
             </div>
         </div>
