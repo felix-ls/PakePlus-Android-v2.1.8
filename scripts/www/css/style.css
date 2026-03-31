@@ -65,6 +65,10 @@ h1 {
 .btn-green:hover { background: #388E3C; }
 .btn-red { background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; }
 .btn-red:hover { background: #D32F2F; }
+button:focus-visible {
+    outline: 2px solid #4CAF50;
+    outline-offset: 2px;
+}
 
 .filter-box {
     display: flex;
@@ -98,6 +102,8 @@ h1 {
     background: transparent;
     border-radius: 5px;
     transition: all 0.2s ease;
+    user-select: none;
+    -webkit-user-select: none;
 }
 .radio-item:hover .radio-label {
     color: #333;
@@ -145,13 +151,13 @@ thead {
     border: 1px solid #ddd;
     padding: 8px 10px;
 }
-tr:nth-child(even) {
+#dataTable tbody tr:nth-child(even) {
     background: #f9f9f9;
 }
-tr:hover {
+#dataTable tbody tr:hover {
     background: #f1f1f1;
 }
-tr.selected {
+#dataTable tbody tr.selected {
     background: #c8e6c9 !important;
 }
 .amount {
@@ -213,6 +219,10 @@ tr.selected {
 }
 body.modal-open {
     overflow: hidden;
+    position: fixed;
+    width: 100%;
+    touch-action: none;
+    -webkit-overflow-scrolling: none;
 }
 .modal-content {
     background: white;
@@ -457,13 +467,16 @@ body.modal-open {
         font-size: 14px;
         padding: 8px 10px;
     }
-    /* 筛选组件：移动端布局 */
+    /* 筛选组件：移动端 Grid 布局 — 前两个并排，余额独占一行居中 */
     .filter-box {
+        display: grid;
+        grid-template-columns: auto auto;
         justify-content: center;
         gap: 8px;
     }
-    .radio-group {
-        flex: 0 0 auto;
+    #balanceGroup {
+        grid-column: 1 / -1;
+        justify-self: center;
     }
     .radio-label {
         padding: 5px 10px;
@@ -506,6 +519,10 @@ body.modal-open {
     }
     .payment-table th, .payment-table td {
         padding: 4px 3px;
+    }
+    /* 备注弹窗移动端宽度 */
+    .modal-content {
+        max-width: 92vw;
     }
 }
 
