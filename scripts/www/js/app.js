@@ -8,6 +8,21 @@ let currentBalance = 'all';
 let currentBudget = 'all';
 let currentYearType = 'all';
 
+// ===== 弹窗滚动锁定 =====
+let _savedScrollY = 0;
+
+function lockBodyScroll() {
+    _savedScrollY = window.scrollY;
+    document.body.classList.add('modal-open');
+    document.body.style.top = -_savedScrollY + 'px';
+}
+
+function unlockBodyScroll() {
+    document.body.classList.remove('modal-open');
+    document.body.style.top = '';
+    window.scrollTo(0, _savedScrollY);
+}
+
 // ===== 数据加载 =====
 
 function loadYears() {
@@ -191,10 +206,12 @@ function openModal(id, currentRemark, indicatorNo) {
         document.querySelector('#remarkModal .btn-save').style.display = '';
     }
     document.getElementById('remarkModal').classList.add('active');
+    lockBodyScroll();
 }
 
 function closeModal() {
     document.getElementById('remarkModal').classList.remove('active');
+    unlockBodyScroll();
     currentEditId = null;
 }
 
@@ -268,10 +285,12 @@ function doUpload(file, password) {
 function openAdminModal() {
     updateAdminYearSelects();
     document.getElementById('adminModal').classList.add('active');
+    lockBodyScroll();
 }
 
 function closeAdminModal() {
     document.getElementById('adminModal').classList.remove('active');
+    unlockBodyScroll();
 }
 
 function updateAdminYearSelects() {
@@ -380,6 +399,10 @@ function closePasswordModal() {
     pendingFile = null;
     pendingAction = null;
     pendingActionData = null;
+    // 密码框可能叠在管理面板上，仅当无其他弹窗活跃时才解锁滚动
+    if (!document.querySelector('.modal.active')) {
+        unlockBodyScroll();
+    }
 }
 
 function confirmPassword() {
@@ -400,6 +423,38 @@ function confirmPassword() {
 
 document.getElementById('searchInput').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') searchData();
+});
+
+document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') confirmPassword();
+});
+
+// 点击遮罩层关闭弹窗
+document.querySelectorAll('.modal').forEach(function(modal) {
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            var id = this.id;
+            if (id === 'remarkModal') closeModal();
+            else if (id === 'adminModal') closeAdminModal();
+            else if (id === 'passwordModal') closePasswordModal();
+            else if (id === 'paymentModal') closePaymentModal();
+        }
+    });
+});
+
+// Escape 键关闭弹窗（按层级优先级）
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        if (document.getElementById('passwordModal').classList.contains('active')) {
+            closePasswordModal();
+        } else if (document.getElementById('paymentModal').classList.contains('active')) {
+            closePaymentModal();
+        } else if (document.getElementById('remarkModal').classList.contains('active')) {
+            closeModal();
+        } else if (document.getElementById('adminModal').classList.contains('active')) {
+            closeAdminModal();
+        }
+    }
 });
 
 document.getElementById('tableBody').addEventListener('click', function(e) {
@@ -435,7 +490,7 @@ function openPaymentModal(indicatorId) {
     document.getElementById('paymentTableBody').innerHTML = '<tr><td colspan="6" class="loading">加载中...</td></tr>';
     document.getElementById('paymentTotal').textContent = '';
     document.getElementById('paymentModal').classList.add('active');
-    document.body.classList.add('modal-open');
+    lockBodyScroll();
 
     API.getPaymentDetails(indicatorId, currentYear)
         .then(result => {
@@ -469,7 +524,7 @@ function openPaymentModal(indicatorId) {
 
 function closePaymentModal() {
     document.getElementById('paymentModal').classList.remove('active');
-    document.body.classList.remove('modal-open');
+    unlockBodyScroll();
 }
 
 // ===== 启动 =====
